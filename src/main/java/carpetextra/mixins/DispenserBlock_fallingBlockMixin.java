@@ -5,8 +5,11 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.DispenserBlock;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.block.entity.DispenserBlockEntity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.FallingBlockEntity;
+import net.minecraft.item.Items;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.property.Properties;
 import net.minecraft.util.math.BlockPos;
@@ -14,7 +17,10 @@ import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
+import org.slf4j.Logger;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -24,6 +30,7 @@ public class DispenserBlock_fallingBlockMixin {
 
     // This is what happens to the code when a constructor is private and I just want to change the velocity before spawnEntity xD
 
+    @Shadow @Final private static Logger LOGGER;
     private static final Vec3d INITIAL_VELOCITY = new Vec3d(0.0, 0.1, 0.0);
 
     private void createFallingBlockWithVelocity(World world, BlockPos pos, BlockState state, Vec3d velocity) {
@@ -52,7 +59,10 @@ public class DispenserBlock_fallingBlockMixin {
             Direction direction = state.get(DispenserBlock.FACING);
             BlockPos facingPos = pos.offset(direction);
             BlockState facingState = world.getBlockState(facingPos);
-            if (!facingState.isAir() && (!facingState.isOf(Blocks.WATER) && !facingState.isOf(Blocks.LAVA) || facingState.getFluidState().isStill())) {
+            DispenserBlockEntity dispenserBlockEntity = world.getBlockEntity(pos, BlockEntityType.DISPENSER).orElse(null);
+            if (dispenserBlockEntity == null) {
+                LOGGER.warn("Dispenser block entity is null at {}", pos.toString());
+            } else if (dispenserBlockEntity.getStack(0).isOf(Items.BOW) && !facingState.isAir() && (!facingState.isOf(Blocks.WATER) && !facingState.isOf(Blocks.LAVA) || facingState.getFluidState().isStill())) {
                 Vec3d velocity = (state.isOf(Blocks.DROPPER) ? INITIAL_VELOCITY : INITIAL_VELOCITY.add(Vec3d.of((direction).getVector())));
                 createFallingBlockWithVelocity(world, facingPos, facingState, velocity);
                 ci.cancel();
